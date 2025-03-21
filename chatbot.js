@@ -1,4 +1,4 @@
-// Farm AI Chatbot Implementation
+// Farm AI Chatbot Implementation with Google Gemini API
 
 document.addEventListener('DOMContentLoaded', function() {
     // DOM Elements
@@ -11,32 +11,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Chat state
     let chatOpen = false;
-
-    // Predefined responses based on keywords
-    const responses = {
-        'hello': 'Hello! How can I help you with your farming needs today?',
-        'hi': 'Hi there! How can I assist you with your agricultural questions?',
-        'help': 'I can help with pest detection, crop management, irrigation solutions, weather forecasts, and more. What specific area are you interested in?',
-        'pest': 'Our AI-Based Pest & Disease Detection system can identify crop issues from images with 95% accuracy. Would you like more information about this service?',
-        'disease': 'Our disease detection system can identify over 50 common crop diseases and suggest appropriate treatments. Would you like to learn more?',
-        'irrigation': 'Our precision irrigation system can reduce water usage by up to 30% while improving yields. Would you like me to explain how it works?',
-        'soil': 'Our soil health monitoring solution provides real-time analysis of nutrient levels, pH, and moisture. Would you like more details?',
-        'weather': 'Our weather intelligence system provides hyperlocal forecasts and early warnings for adverse conditions that might affect your crops.',
-        'price': 'Our pricing depends on farm size and selected features. Would you like me to connect you with a sales representative for a custom quote?',
-        'demo': 'We offer free demonstrations of our technology. Would you like to schedule one? You can also fill out the contact form on our website.',
-        'contact': 'You can reach our team at sonuk.gupta81@gmail.com or +91 8109246603. Would you like me to connect you with a specific department?',
-        'thanks': 'You\'re welcome! Feel free to reach out if you have any other questions.',
-        'thank you': 'You\'re welcome! Is there anything else I can help you with?'
-    };
-
-    // Fallback response when no keyword match is found
-    const fallbackResponses = [
-        "I'm not sure I understand. Could you rephrase your question?",
-        "Let me connect you with our agriculture experts. Please call +91 8109246603 or email us at sonuk.gupta81@gmail.com.",
-        "That's an interesting question. Our team would be happy to provide more information. Would you like to schedule a call?",
-        "Our Smart Farm AI solutions cover many aspects of agriculture. Could you specify which area you're interested in?",
-        "I'd be happy to help with that. Could you provide more details about your farming needs?"
-    ];
+    
+    // Welcome message
+    const welcomeMessage = 'Hello! I\'m your Farm AI Assistant. How can I help you with your farming needs today?';
 
     // Initialize chat
     function initChat() {
@@ -135,23 +112,41 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Get bot response based on user input
-    function getBotResponse(userInput) {
-        userInput = userInput.toLowerCase().trim();
-        
-        // Check for keyword matches
-        for (const [keyword, response] of Object.entries(responses)) {
-            if (userInput.includes(keyword)) {
-                return response;
+    // Get bot response using Google Gemini API
+    async function getBotResponseFromAPI(userInput) {
+        try {
+            const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyBUWDjOwZdvuWUoGGKak5lJzhxBWMMi0m8", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    "contents": [{
+                        "parts": [{
+                            "text": `You are a smart farming assistant that helps farmers with their agricultural questions. 
+                                    Provide helpful, accurate information about farming practices, pest control, irrigation, 
+                                    crop management, soil health, and other farming topics. 
+                                    Keep responses concise and targeted to farming needs.
+                                    User query: ${userInput}`
+                        }]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}`);
             }
+
+            const data = await response.json();
+            return data?.candidates[0]?.content?.parts[0]?.text || "I'm sorry, I couldn't process your request at the moment. Please try again.";
+        } catch (error) {
+            console.error("Error fetching from Gemini API:", error);
+            return "I'm experiencing technical difficulties. Please try again later or contact our support team at sonuk.gupta81@gmail.com.";
         }
-        
-        // If no match, return random fallback response
-        return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
     }
 
     // Handle sending a message
-    function sendMessage() {
+    async function sendMessage() {
         const userMessage = chatInput.value.trim();
         
         if (userMessage) {
@@ -163,17 +158,20 @@ document.addEventListener('DOMContentLoaded', function() {
             chatInput.style.height = 'auto';
             
             // Show typing indicator
-            const typingIndicator = showTypingIndicator();
+            showTypingIndicator();
             
-            // Simulate processing time (0.5 to 1.5 seconds)
-            const responseTime = Math.floor(Math.random() * 1000) + 500;
-            
-            // Get and display bot response after delay
-            setTimeout(() => {
+            try {
+                // Get response from API
+                const botResponse = await getBotResponseFromAPI(userMessage);
+                
+                // Remove typing indicator and add response
                 removeTypingIndicator();
-                const botResponse = getBotResponse(userMessage);
                 addMessage(botResponse, false);
-            }, responseTime);
+            } catch (error) {
+                console.error("Error in sendMessage:", error);
+                removeTypingIndicator();
+                addMessage("Sorry, I encountered a problem. Please try again or contact support.", false);
+            }
         }
     }
 
